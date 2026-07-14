@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Layer {
+  FRONTEND
+  BACKEND
+  DATABASE
+  SSL
+}
+
+enum CheckStatus {
+  UP
+  DEGRADED
+  DOWN
+}
+
+model Site {
+  id                  String   @id @default(cuid())
+  name                String
+  url                 String
+  healthUrl           String?
+  authToken           String?
+  checkIntervalSeconds Int     @default(60)
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+
+  checks    Check[]
+  incidents Incident[]
+}
+
+model Check {
+  id           String      @id @default(cuid())
+  siteId       String
+  timestamp    DateTime    @default(now())
+  layer        Layer
+  status       CheckStatus
+  latencyMs    Int?
+  httpStatus   Int?
+  errorMessage String?
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, layer, timestamp])
+}
+
+model Incident {
+  id         String    @id @default(cuid())
+  siteId     String
+  layer      Layer
+  startedAt  DateTime  @default(now())
+  resolvedAt DateTime?
+  firstError String
+  notified   Boolean   @default(false)
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, layer, resolvedAt])
+}
