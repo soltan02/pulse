@@ -15,4 +15,5 @@ export const config = {
   telegramBotToken: process.env.TELEGRAM_BOT_TOKEN,
   telegramChatId: process.env.TELEGRAM_CHAT_ID,
   webhookUrl: process.env.WEBHOOK_URL,
+  geminiApiKey: process.env.GEMINI_API_KEY,
 };

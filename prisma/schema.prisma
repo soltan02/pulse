@@ -50,13 +50,14 @@ model Check {
 }
 
 model Incident {
-  id         String    @id @default(cuid())
-  siteId     String
-  layer      Layer
-  startedAt  DateTime  @default(now())
-  resolvedAt DateTime?
-  firstError String
-  notified   Boolean   @default(false)
+  id          String    @id @default(cuid())
+  siteId      String
+  layer       Layer
+  startedAt   DateTime  @default(now())
+  resolvedAt  DateTime?
+  firstError  String
+  notified    Boolean   @default(false)
+  aiDiagnosis String? // best-effort AI root-cause + suggested fixes, set once when the incident opens
 
   site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
 

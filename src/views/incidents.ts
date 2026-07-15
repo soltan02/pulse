@@ -7,6 +7,13 @@ function renderRow(incident: IncidentRow): string {
   const statusBadge = incident.resolvedAt
     ? `<span class="badge resolved">resolved</span>`
     : `<span class="badge open">open</span>`;
+  const diagnosisRow = incident.aiDiagnosis
+    ? `<tr>
+        <td colspan="6" style="background: var(--bg);">
+          <div class="ai-diagnosis"><strong>AI diagnosis:</strong> ${escapeHtml(incident.aiDiagnosis)}</div>
+        </td>
+      </tr>`
+    : "";
   return `<tr id="${incident.id}">
     <td>${escapeHtml(incident.siteName)}</td>
     <td>${incident.layer}</td>
@@ -14,7 +21,7 @@ function renderRow(incident: IncidentRow): string {
     <td>${formatDateTime(incident.startedAt)}</td>
     <td>${formatDuration(incident.startedAt, incident.resolvedAt)}</td>
     <td class="mono">${escapeHtml(incident.firstError)}</td>
-  </tr>`;
+  </tr>${diagnosisRow}`;
 }
 
 export function renderIncidentsPage(incidents: IncidentRow[]): string {

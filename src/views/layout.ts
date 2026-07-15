@@ -60,6 +60,8 @@ th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform
 .badge.open { background: #fee2e2; color: var(--down); }
 .badge.resolved { background: #dcfce7; color: var(--up); }
 .mono { font-family: "SF Mono", Consolas, monospace; }
+.ai-diagnosis { font-size: 13px; color: var(--text-muted); padding: 10px 4px; line-height: 1.5; white-space: pre-wrap; }
+.ai-diagnosis strong { color: var(--text); }
 form.stacked { display: flex; flex-direction: column; gap: 12px; max-width: 420px; }
 form.stacked label { font-size: 13px; font-weight: 600; }
 form.stacked input { padding: 8px 10px; border: 0.5px solid var(--border); border-radius: 6px; font-size: 14px; }

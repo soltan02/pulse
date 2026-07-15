@@ -10,17 +10,22 @@ export interface AlertEvent {
   firstError: string;
   incidentId: string;
   startedAt: Date;
+  aiDiagnosis: string | null;
 }
 
 export async function sendAlerts(event: AlertEvent): Promise<void> {
   const dashboardLink = `${config.publicBaseUrl}/incidents#${event.incidentId}`;
   const verb = event.kind === "opened" ? "DOWN" : "RECOVERED";
-  const text = [
+  const textLines = [
     `<b>${escapeHtml(event.site.name)}</b> — ${event.layer} is ${verb}`,
     `Error: ${escapeHtml(event.firstError)}`,
     `Started: ${event.startedAt.toISOString()}`,
-    dashboardLink,
-  ].join("\n");
+  ];
+  if (event.aiDiagnosis) {
+    textLines.push("", `<b>AI diagnosis:</b>\n${escapeHtml(event.aiDiagnosis)}`);
+  }
+  textLines.push("", dashboardLink);
+  const text = textLines.join("\n");
 
   await Promise.all([
     sendTelegramAlert(text),
@@ -32,6 +37,7 @@ export async function sendAlerts(event: AlertEvent): Promise<void> {
       error: event.firstError,
       startedAt: event.startedAt.toISOString(),
       incidentId: event.incidentId,
+      aiDiagnosis: event.aiDiagnosis,
       dashboardLink,
     }),
   ]);

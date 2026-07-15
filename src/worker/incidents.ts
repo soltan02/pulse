@@ -1,8 +1,10 @@
 import { Layer } from "@prisma/client";
 import { prisma } from "../db";
 import { sendAlerts } from "../alerts";
+import { diagnoseIncident } from "../ai/gemini";
 
 const CONFIRMATION_COUNT = 2;
+const HISTORY_SIZE_FOR_DIAGNOSIS = 8;
 
 /** Call after inserting a new Check row — looks at recent history for that
  * (site, layer) pair and opens/resolves an Incident once 2 consecutive
@@ -30,6 +32,24 @@ export async function evaluateIncident(siteId: string, layer: Layer): Promise<vo
     const incident = await prisma.incident.create({
       data: { siteId, layer, firstError },
     });
+
+    // Best-effort — never blocks incident creation/alerting if it fails or is unconfigured.
+    const history = await prisma.check.findMany({
+      where: { siteId, layer },
+      orderBy: { timestamp: "desc" },
+      take: HISTORY_SIZE_FOR_DIAGNOSIS,
+    });
+    const aiDiagnosis = await diagnoseIncident({
+      siteName: site.name,
+      siteUrl: site.url,
+      layer,
+      firstError,
+      recentChecks: history.reverse(),
+    });
+    if (aiDiagnosis) {
+      await prisma.incident.update({ where: { id: incident.id }, data: { aiDiagnosis } });
+    }
+
     await sendAlerts({
       kind: "opened",
       site: { id: site.id, name: site.name },
@@ -37,6 +57,7 @@ export async function evaluateIncident(siteId: string, layer: Layer): Promise<vo
       firstError,
       incidentId: incident.id,
       startedAt: incident.startedAt,
+      aiDiagnosis,
     });
     await prisma.incident.update({ where: { id: incident.id }, data: { notified: true } });
     return;
@@ -52,6 +73,7 @@ export async function evaluateIncident(siteId: string, layer: Layer): Promise<vo
       firstError: openIncident.firstError,
       incidentId: openIncident.id,
       startedAt: openIncident.startedAt,
+      aiDiagnosis: null,
     });
   }
 }
