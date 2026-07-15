@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed": "tsx prisma/seed.ts",
+    "check:once": "tsx scripts/run-checks.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy"

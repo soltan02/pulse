@@ -28,6 +28,7 @@ export function isAuthenticated(request: FastifyRequest): boolean {
 }
 
 export function checkPassword(password: string): boolean {
+  if (!config.dashboardPassword) throw new Error("Missing required env var: DASHBOARD_PASSWORD");
   const a = Buffer.from(password);
   const b = Buffer.from(config.dashboardPassword);
   if (a.length !== b.length) return false;

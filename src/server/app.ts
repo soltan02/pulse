@@ -6,6 +6,9 @@ import { registerPageRoutes } from "./routes/pages";
 import { registerApiRoutes } from "./routes/api";
 
 export async function buildApp(): Promise<FastifyInstance> {
+  if (!config.dashboardPassword) throw new Error("Missing required env var: DASHBOARD_PASSWORD");
+  if (!config.sessionSecret) throw new Error("Missing required env var: SESSION_SECRET");
+
   const app = Fastify({ logger: true, trustProxy: true });
 
   await app.register(cookie, { secret: config.sessionSecret });
