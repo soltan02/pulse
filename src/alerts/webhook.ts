@@ -1,6 +1,18 @@
 import { config } from "../config";
 
-export async function sendWebhookAlert(payload: unknown): Promise<void> {
+export interface WebhookAlertPayload {
+  event: "opened" | "resolved";
+  site: string;
+  siteId: string;
+  layer: string;
+  error: string;
+  startedAt: string;
+  incidentId: string;
+  aiDiagnosis: string | null;
+  dashboardLink: string;
+}
+
+export async function sendWebhookAlert(payload: WebhookAlertPayload): Promise<void> {
   if (!config.webhookUrl) return;
   try {
     const res = await fetch(config.webhookUrl, {

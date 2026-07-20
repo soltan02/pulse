@@ -2,8 +2,6 @@ name: Pulse Monitor
 
 on:
   schedule:
-    # GitHub's schedule cron isn't precise under load — treat "every 5
-    # minutes" as "at least every ~5-15 minutes", not a hard guarantee.
     - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
@@ -28,5 +26,9 @@ jobs:
           PUBLIC_BASE_URL: ${{ secrets.PUBLIC_BASE_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
           WEBHOOK_URL: ${{ secrets.WEBHOOK_URL }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

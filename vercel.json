@@ -1,6 +1,14 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
+  "builds": [
+    {
+      "src": "api/index.ts",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    { "src": "/pulse-favicon.svg", "dest": "/public/pulse-favicon.svg" },
+    { "src": "/pulse-robots.txt", "dest": "/public/pulse-robots.txt" },
+    { "src": "/pulse-assets/(.*)", "dest": "/public/pulse-assets/$1" },
+    { "src": "/(.*)", "dest": "/api/index" }
   ]
 }

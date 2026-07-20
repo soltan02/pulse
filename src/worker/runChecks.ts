@@ -4,6 +4,8 @@ import { runFrontendCheck, runSslCheck, runBackendAndDatabaseChecks, CheckOutcom
 import { evaluateIncident } from "./incidents";
 
 const SSL_CHECK_INTERVAL_MS = 60 * 60 * 1000; // once per hour per site
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 2_000;
 
 interface SiteRow {
   id: string;
@@ -37,33 +39,57 @@ async function isDue(siteId: string, layer: Layer, intervalMs: number): Promise<
   return Date.now() - last.timestamp.getTime() >= intervalMs;
 }
 
+/** Runs an async function with exponential-backoff retries for transient
+ * failures. The function itself decides what counts as a transient error
+ * (e.g. timeout, connection refused); we retry anything that throws. */
+async function withRetry<T>(fn: () => Promise<T>, label: string): Promise<T | null> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt < MAX_RETRIES) {
+        const delay = RETRY_DELAY_MS * Math.pow(2, attempt);
+        console.warn(`[${label}] attempt ${attempt + 1}/${MAX_RETRIES + 1} failed, retrying in ${delay}ms:`, (err as Error)?.message ?? err);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  }
+  console.error(`[${label}] all ${MAX_RETRIES + 1} attempts failed:`, (lastErr as Error)?.message ?? lastErr);
+  return null;
+}
+
 async function checkSite(site: SiteRow): Promise<void> {
   if (await isDue(site.id, "FRONTEND", site.checkIntervalSeconds * 1000)) {
-    try {
-      const frontend = await runFrontendCheck(site.url);
-      await persistCheck(site.id, frontend);
-    } catch (err) {
-      console.error(`Frontend check crashed for site ${site.id}:`, err);
-    }
+    const frontend = await withRetry(
+      () => runFrontendCheck(site.url),
+      `frontend:${site.id}`,
+    );
+    if (frontend) await persistCheck(site.id, frontend);
+    else console.error(`Frontend check failed for site ${site.id} after retries`);
 
     if (site.healthUrl) {
-      try {
-        const { backend, database } = await runBackendAndDatabaseChecks(site.healthUrl, site.authToken);
-        await persistCheck(site.id, backend);
-        await persistCheck(site.id, database);
-      } catch (err) {
-        console.error(`Backend/database check crashed for site ${site.id}:`, err);
+      const backendDb = await withRetry(
+        () => runBackendAndDatabaseChecks(site.healthUrl!, site.authToken!),
+        `backend-db:${site.id}`,
+      );
+      if (backendDb) {
+        await persistCheck(site.id, backendDb.backend);
+        await persistCheck(site.id, backendDb.database);
+      } else {
+        console.error(`Backend/database check failed for site ${site.id} after retries`);
       }
     }
   }
 
   if (await isDue(site.id, "SSL", SSL_CHECK_INTERVAL_MS)) {
-    try {
-      const ssl = await runSslCheck(site.url);
-      await persistCheck(site.id, ssl);
-    } catch (err) {
-      console.error(`SSL check crashed for site ${site.id}:`, err);
-    }
+    const ssl = await withRetry(
+      () => runSslCheck(site.url),
+      `ssl:${site.id}`,
+    );
+    if (ssl) await persistCheck(site.id, ssl);
+    else console.error(`SSL check failed for site ${site.id} after retries`);
   }
 }
 

@@ -1,26 +1,35 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
-import type { FastifyInstance } from "fastify";
-import { buildApp } from "../src/server/app";
+import fs from "node:fs";
+import path from "node:path";
+import type { VercelRequest, VercelResponse } from "@vercel/node";
+import { buildApp } from "../../src/server/app";
 
-// Cached across warm invocations of the same serverless instance — Vercel
-// reuses the container between requests when it can, so this only pays
-// Fastify's startup cost on a cold start, not every request.
-let appPromise: Promise<FastifyInstance> | null = null;
+let appPromise: ReturnType<typeof buildApp> | null = null;
 
-function getApp(): Promise<FastifyInstance> {
-  if (!appPromise) {
-    appPromise = buildApp().then(async (app) => {
-      await app.ready();
-      return app;
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Handle API routes
+  if (req.url?.startsWith("/api/")) {
+    if (!appPromise) {
+      appPromise = buildApp();
+    }
+    const fastify = await appPromise;
+    return fastify.ready().then(() => {
+      fastify.server.emit("request", req, res);
     });
   }
-  return appPromise;
-}
 
-// Fastify's own .listen() binds a port, which serverless platforms don't
-// want — instead we hand the raw req/res to Fastify's underlying Node
-// server exactly as it would receive them from a real socket connection.
-export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const app = await getApp();
-  app.server.emit("request", req, res);
+  // Serve SPA
+  // Try public/ first (Vercel copies it), then dist/ (local dev)
+  const indexPath = path.join(process.cwd(), "public", "spa.html");
+  try {
+    const html = fs.readFileSync(indexPath, "utf-8");
+    return res.setHeader("Content-Type", "text/html").send(html);
+  } catch {
+    const fallback = path.join(process.cwd(), "dist", "client", "index.html");
+    try {
+      const html = fs.readFileSync(fallback, "utf-8");
+      return res.setHeader("Content-Type", "text/html").send(html);
+    } catch {
+      return res.status(500).send("SPA not found");
+    }
+  }
 }
