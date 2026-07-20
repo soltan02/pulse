@@ -1,0 +1,13 @@
+{
+  "builds": [
+    { "src": "package.json", "use": "@vercel/node" }
+  ],
+  "routes": [
+    { "src": "/pulse-favicon.svg", "dest": "/public/pulse-favicon.svg" },
+    { "src": "/pulse-robots.txt", "dest": "/public/pulse-robots.txt" },
+    { "src": "/pulse-assets/(.*)", "dest": "/public/pulse-assets/$1" },
+    { "src": "/api/(.*)", "dest": "/api/index" },
+    { "src": "/health", "dest": "/api/index" },
+    { "src": "/(.*)", "dest": "/api/index" }
+  ]
+}
