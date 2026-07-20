@@ -8,7 +8,7 @@
   "private": true,
   "scripts": {
     "postinstall": "prisma generate",
-    "build": "tsc -p tsconfig.json && vite build && node scripts/copy-spa.mjs",
+    "build": "tsc -p tsconfig.json && vite build",
     "dev": "tsx watch src/index.ts",
     "dev:client": "vite --host",
     "dev:all": "concurrently \"npm run dev\" \"npm run dev:client\"",
