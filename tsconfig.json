@@ -9,7 +9,6 @@
     "strict": true,
     "noImplicitAny": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": false,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -17,6 +16,6 @@
     "declaration": false,
     "sourceMap": true
   },
-  "include": ["api", "lib", "scripts"],
+  "include": ["src", "api", "lib", "scripts"],
   "exclude": ["node_modules", "dist", "src/client"]
 }

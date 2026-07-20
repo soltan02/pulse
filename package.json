@@ -7,12 +7,12 @@
   "private": true,
   "scripts": {
     "build": "tsc && vite build",
-    "test": "vitest run",
-    "check:once": "tsx scripts/run-checks.ts",
-    "prisma:generate": "prisma generate"
+    "start": "node dist/src/server.js",
+    "test": "vitest run"
   },
   "dependencies": {
     "@prisma/client": "^6.3.1",
+    "express": "^5.1.0",
     "pg": "^8.13.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -22,11 +22,11 @@
     "lucide-react": "^0.460.0"
   },
   "devDependencies": {
+    "@types/express": "^5.0.2",
     "@types/node": "^22.20.1",
     "@types/pg": "^8.11.10",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@vercel/node": "^5.8.26",
     "@vitejs/plugin-react": "^4.3.4",
     "prisma": "^6.3.1",
     "tsx": "^4.19.2",
