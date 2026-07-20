@@ -21,7 +21,6 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Serve the React SPA static files (built by Vite → dist/)
   const spaDir = path.join(__dirname, "..", "..", "dist");
 
-  // In production, the SPA is built and served as static files
   if (fs.existsSync(spaDir)) {
     await app.register(statics, {
       root: spaDir,
@@ -41,12 +40,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     if (request.url.startsWith("/api/") || request.url === "/health") {
       return reply.code(404).send({ error: "not found" });
     }
-    // Serve the SPA index.html
     try {
       const html = fs.readFileSync(path.join(spaDir, "index.html"), "utf-8");
       return reply.type("text/html").send(html);
     } catch {
-      return reply.code(500).send("SPA not found. Run `npm run build` first.");
+      return reply.code(500).send("SPA not built yet");
     }
   });
 
