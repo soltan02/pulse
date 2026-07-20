@@ -17,6 +17,6 @@
     "declaration": false,
     "sourceMap": true
   },
-  "include": ["src/server", "src/worker", "src/alerts", "src/config.ts", "src/db.ts", "src/index.ts", "scripts", "prisma"],
+  "include": ["api", "lib", "scripts"],
   "exclude": ["node_modules", "dist", "src/client"]
 }
