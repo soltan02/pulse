@@ -4,6 +4,7 @@ import Layout from '../components/Layout';
 import { FadeIn, StaggerContainer } from '../components/FadeIn';
 import { StatCard } from '../components/StatCard';
 import { SiteCardComponent } from '../components/SiteCardComponent';
+import { SkeletonStatCard, SkeletonSiteCard } from '../components/Skeleton';
 import { getOverview } from '../api';
 import type { ApiOverviewResponse } from '../types';
 import { RefreshCw, Zap } from 'lucide-react';
@@ -42,15 +43,27 @@ export default function OverviewPage() {
     return (
       <Layout>
         <FadeIn>
-          <div style={{ textAlign: 'center', padding: '80px 0' }}>
-            <div style={{
-              width: 40, height: 40, borderRadius: '50%',
-              border: '3px solid var(--border)', borderTopColor: 'var(--accent)',
-              margin: '0 auto 16px',
-              animation: 'spin 0.8s linear infinite',
-            }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading dashboard...</p>
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: 16,
+              marginBottom: 32
+            }}>
+              <SkeletonStatCard />
+              <SkeletonStatCard />
+              <SkeletonStatCard />
+              <SkeletonStatCard />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <Zap size={18} color="var(--accent)" />
+              <span style={{ fontSize: 16, fontWeight: 600 }}>Monitored Sites</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <SkeletonSiteCard />
+              <SkeletonSiteCard />
+              <SkeletonSiteCard />
+            </div>
           </div>
         </FadeIn>
       </Layout>

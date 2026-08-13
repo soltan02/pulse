@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { memo } from 'react';
 import { CheckStatus, Layer } from '@prisma/client';
 
 interface StatCardProps {
@@ -9,7 +10,7 @@ interface StatCardProps {
   delay?: number;
 }
 
-export function StatCard({ label, value, sub, color = 'default', delay = 0 }: StatCardProps) {
+export const StatCard = memo(function StatCard({ label, value, sub, color = 'default', delay = 0 }: StatCardProps) {
   const gradientMap = {
     default: 'linear-gradient(135deg, var(--text), var(--text-muted))',
     up: 'linear-gradient(135deg, var(--up), #4ade80)',
@@ -25,7 +26,7 @@ export function StatCard({ label, value, sub, color = 'default', delay = 0 }: St
         border: '1px solid var(--border)',
         borderRadius: 12,
         padding: 20,
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'transform 300ms cubic-bezier(0.4, 0, 0.2, 1), border-color 300ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1)',
         cursor: 'default',
       }}
       onMouseEnter={(e) => {
@@ -56,4 +57,4 @@ export function StatCard({ label, value, sub, color = 'default', delay = 0 }: St
       )}
     </motion.div>
   );
-}
+});

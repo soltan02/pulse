@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { memo } from 'react';
 import { ExternalLink, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
 import type { SiteCard as SiteCardType } from '../types';
 
@@ -7,7 +8,7 @@ interface SiteCardComponentProps {
   delay?: number;
 }
 
-export function SiteCardComponent({ card, delay = 0 }: SiteCardComponentProps) {
+export const SiteCardComponent = memo(function SiteCardComponent({ card, delay = 0 }: SiteCardComponentProps) {
   const statusColor = card.hasActiveIncident ? 'var(--down)' : 'var(--up)';
   const borderColor = card.hasActiveIncident ? 'rgba(239,68,68,0.3)' : 'var(--border)';
 
@@ -24,7 +25,7 @@ export function SiteCardComponent({ card, delay = 0 }: SiteCardComponentProps) {
         padding: 20,
         position: 'relative',
         overflow: 'hidden',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        transition: 'transform 300ms cubic-bezier(0.4, 0, 0.2, 1), border-color 300ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
       {card.hasActiveIncident && (
@@ -67,12 +68,12 @@ export function SiteCardComponent({ card, delay = 0 }: SiteCardComponentProps) {
         gap: 8,
       }}>
         {card.layers.map((layer) => (
-          <LayerTile key={layer.layer} tile={layer} />
+          <MemoizedLayerTile key={layer.layer} tile={layer} />
         ))}
       </div>
     </motion.div>
   );
-}
+});
 
 function LayerTile({ tile }: { tile: { layer: string; status: string; latencyMs: number | null; errorMessage: string | null } }) {
   const dotColor = tile.status === 'UP' ? 'var(--up)' :
@@ -87,7 +88,7 @@ function LayerTile({ tile }: { tile: { layer: string; status: string; latencyMs:
       padding: '10px 12px', borderRadius: 8,
       background: 'var(--bg-elevated)',
       border: '1px solid transparent',
-      transition: 'all 0.2s',
+      transition: 'border-color 200ms ease-out',
     }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)';
@@ -113,3 +114,5 @@ function LayerTile({ tile }: { tile: { layer: string; status: string; latencyMs:
     </div>
   );
 }
+
+export const MemoizedLayerTile = memo(LayerTile);

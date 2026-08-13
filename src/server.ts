@@ -1,8 +1,10 @@
 import express from "express";
 import { Pool } from "pg";
-import { createHash } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import path from "node:path";
 import fs from "node:fs";
+import cron from "node-cron";
+import { runChecks } from "./monitor";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,26 +12,40 @@ const PORT = process.env.PORT || 3000;
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const SESSION_COOKIE = "pulse_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 30;
+const SESSION_SECRET = process.env.SESSION_SECRET || process.env.DASHBOARD_PASSWORD || "pulse-dev-secret";
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve built SPA static files
-const spaDir = path.join(__dirname, "..", "dist", "client");
+const spaDir = path.join(__dirname, "..", "client");
 if (fs.existsSync(spaDir)) {
   app.use(express.static(spaDir));
 }
 
 // ─── Helpers ──────────────────────────────────────────────
+function signSession(): string {
+  const payload = `pulse:${Date.now().toString(36)}`;
+  const sig = createHmac("sha256", SESSION_SECRET).update(payload).digest("base64url");
+  return `${payload}.${sig}`;
+}
+
 function checkAuth(req: express.Request): boolean {
-  const cookie = req.headers.cookie || "";
-  return cookie.includes(`${SESSION_COOKIE}=authenticated`);
+  const raw = req.headers.cookie || "";
+  const match = new RegExp(`${SESSION_COOKIE}=([^;]+)`).exec(raw);
+  let token = match ? match[1] ?? "" : "";
+  try { token = decodeURIComponent(token); } catch { return false; }
+  const parts = token.split(".");
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return false;
+  const expected = createHmac("sha256", SESSION_SECRET).update(parts[0]).digest("base64url");
+  return timingSafeEqual(expected, parts[1]);
 }
 
 function setAuthCookie(res: express.Response): void {
-  res.cookie(SESSION_COOKIE, "authenticated", {
+  res.cookie(SESSION_COOKIE, signSession(), {
     httpOnly: true, maxAge: SESSION_MAX_AGE * 1000, sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
   });
 }
 
@@ -82,9 +98,9 @@ const requireAuth = (req: express.Request, res: express.Response, next: express.
 app.get("/api/overview", requireAuth, async (req, res) => {
   const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const [sitesResult, frontendResult, incidentsResult] = await Promise.all([
-    pool.query("SELECT COUNT(*) FROM site WHERE active = true"),
-    pool.query("SELECT status, latency_ms FROM check WHERE layer = $1 AND timestamp >= $2", ["FRONTEND", since]),
-    pool.query("SELECT COUNT(*) FROM incident WHERE resolved_at IS NULL"),
+    pool.query('SELECT COUNT(*) FROM "Site" WHERE active = true'),
+    pool.query('SELECT status, "latencyMs" FROM "Check" WHERE layer = $1 AND timestamp >= $2', ["FRONTEND", since]),
+    pool.query('SELECT COUNT(*) FROM "Incident" WHERE "resolvedAt" IS NULL'),
   ]);
 
   const sitesMonitored = Number(sitesResult.rows[0].count);
@@ -95,21 +111,21 @@ app.get("/api/overview", requireAuth, async (req, res) => {
     ? Math.round((frontendChecks.filter((c: any) => c.status === "UP").length / frontendChecks.length) * 1000) / 10
     : null;
 
-  const latencies = frontendChecks.map((c: any) => c.latency_ms).filter((v: number | null) => v !== null);
+  const latencies = frontendChecks.map((c: any) => c.latencyMs).filter((v: number | null) => v !== null);
   const avgResponseMs = latencies.length > 0
     ? Math.round(latencies.reduce((a: number, b: number) => a + b, 0) / latencies.length)
     : null;
 
-  const sites = await pool.query("SELECT * FROM site ORDER BY created_at ASC");
+  const sites = await pool.query('SELECT * FROM "Site" ORDER BY "createdAt" ASC');
   const siteCards = await Promise.all(sites.rows.map(async (site: any) => {
     const layers = await Promise.all(
       ["FRONTEND", "BACKEND", "DATABASE", "SSL"].map(async (layer: string) => {
-        const r = await pool.query("SELECT * FROM check WHERE site_id = $1 AND layer = $2 ORDER BY timestamp DESC LIMIT 1", [site.id, layer]);
+        const r = await pool.query('SELECT * FROM "Check" WHERE "siteId" = $1 AND layer = $2 ORDER BY timestamp DESC LIMIT 1', [site.id, layer]);
         const c = r.rows[0];
-        return c ? { layer: c.layer, status: c.status, latencyMs: c.latency_ms, errorMessage: c.error_message, timestamp: c.timestamp } : null;
+        return c ? { layer: c.layer, status: c.status, latencyMs: c.latencyMs, errorMessage: c.errorMessage, timestamp: c.timestamp } : null;
       })
     );
-    const inc = await pool.query("SELECT COUNT(*) FROM incident WHERE site_id = $1 AND resolved_at IS NULL", [site.id]);
+    const inc = await pool.query('SELECT COUNT(*) FROM "Incident" WHERE "siteId" = $1 AND "resolvedAt" IS NULL', [site.id]);
     return {
       id: site.id, name: site.name, url: site.url,
       hasActiveIncident: Number(inc.rows[0].count) > 0,
@@ -126,14 +142,14 @@ app.get("/api/overview", requireAuth, async (req, res) => {
 // ─── Incidents ────────────────────────────────────────────
 app.get("/api/incidents", requireAuth, async (req, res) => {
   const r = await pool.query(
-    "SELECT i.*, s.name as site_name FROM incident i JOIN site s ON i.site_id = s.id ORDER BY i.resolved_at ASC NULLS FIRST, i.started_at DESC LIMIT 200",
+    'SELECT i.*, s.name as site_name FROM "Incident" i JOIN "Site" s ON i."siteId" = s.id ORDER BY i."resolvedAt" ASC NULLS FIRST, i."startedAt" DESC LIMIT 200',
   );
   res.json({
     incidents: r.rows.map((inc: any) => ({
       id: inc.id, siteName: inc.site_name, layer: inc.layer,
-      status: inc.resolved_at ? "resolved" : "open",
-      startedAt: inc.started_at, resolvedAt: inc.resolved_at,
-      firstError: inc.first_error, aiDiagnosis: inc.ai_diagnosis,
+      status: inc.resolvedAt ? "resolved" : "open",
+      startedAt: inc.startedAt, resolvedAt: inc.resolvedAt,
+      firstError: inc.firstError, aiDiagnosis: inc.aiDiagnosis,
     })),
   });
 });
@@ -141,27 +157,27 @@ app.get("/api/incidents", requireAuth, async (req, res) => {
 // ─── Site Detail ──────────────────────────────────────────
 app.get("/api/sites/:id", requireAuth, async (req, res) => {
   const siteId = req.params.id;
-  const site = await pool.query("SELECT * FROM site WHERE id = $1", [siteId]);
+  const site = await pool.query('SELECT * FROM "Site" WHERE id = $1', [siteId]);
   if (!site.rows[0]) return res.status(404).json({ error: "not found" });
 
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const history = await Promise.all(
     ["FRONTEND", "BACKEND", "DATABASE", "SSL"].map(async (layer: string) => {
       const r = await pool.query(
-        "SELECT status, latency_ms, error_message, timestamp FROM check WHERE site_id = $1 AND layer = $2 AND timestamp >= $3 ORDER BY timestamp ASC",
+        'SELECT status, "latencyMs", "errorMessage", timestamp FROM "Check" WHERE "siteId" = $1 AND layer = $2 AND timestamp >= $3 ORDER BY timestamp ASC',
         [siteId, layer, since],
       );
       return {
         layer,
         checks: r.rows.map((c: any) => ({
-          status: c.status, latencyMs: c.latency_ms, errorMessage: c.error_message, timestamp: c.timestamp,
+          status: c.status, latencyMs: c.latencyMs, errorMessage: c.errorMessage, timestamp: c.timestamp,
         })),
       };
     })
   );
 
   const incidents = await pool.query(
-    "SELECT id, layer, started_at, resolved_at, first_error, ai_diagnosis FROM incident WHERE site_id = $1 ORDER BY started_at DESC LIMIT 50",
+    'SELECT id, layer, "startedAt", "resolvedAt", "firstError", "aiDiagnosis" FROM "Incident" WHERE "siteId" = $1 ORDER BY "startedAt" DESC LIMIT 50',
     [siteId],
   );
 
@@ -169,15 +185,15 @@ app.get("/api/sites/:id", requireAuth, async (req, res) => {
     site: site.rows[0],
     history,
     incidents: incidents.rows.map((inc: any) => ({
-      ...inc, status: inc.resolved_at ? "resolved" : "open",
-      startedAt: inc.started_at, resolvedAt: inc.resolved_at,
+      ...inc, status: inc.resolvedAt ? "resolved" : "open",
+      startedAt: inc.startedAt, resolvedAt: inc.resolvedAt,
     })),
   });
 });
 
 // ─── Settings: Sites ──────────────────────────────────────
 app.get("/api/settings/sites", requireAuth, async (req, res) => {
-  const r = await pool.query("SELECT * FROM site ORDER BY created_at ASC");
+  const r = await pool.query('SELECT * FROM "Site" ORDER BY "createdAt" ASC');
   res.json(r.rows);
 });
 
@@ -185,7 +201,7 @@ app.post("/api/settings/sites", requireAuth, async (req, res) => {
   const body = req.body;
   const interval = Number(body.checkIntervalSeconds);
   const r = await pool.query(
-    "INSERT INTO site (name, url, health_url, auth_token, check_interval_seconds) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+    'INSERT INTO "Site" (name, url, "healthUrl", "authToken", "checkIntervalSeconds") VALUES ($1, $2, $3, $4, $5) RETURNING *',
     [body.name?.trim() || "", body.url?.trim() || "", body.healthUrl?.trim() || null, body.authToken?.trim() || null,
      Number.isFinite(interval) && interval >= 10 ? Math.floor(interval) : 60],
   );
@@ -197,7 +213,7 @@ app.put("/api/settings/sites/:id", requireAuth, async (req, res) => {
   const body = req.body;
   const interval = Number(body.checkIntervalSeconds);
   const r = await pool.query(
-    "UPDATE site SET name=$1, url=$2, health_url=$3, auth_token=$4, check_interval_seconds=$5 WHERE id=$6 RETURNING *",
+    'UPDATE "Site" SET name=$1, url=$2, "healthUrl"=$3, "authToken"=$4, "checkIntervalSeconds"=$5 WHERE id=$6 RETURNING *',
     [body.name?.trim() || "", body.url?.trim() || "", body.healthUrl?.trim() || null, body.authToken?.trim() || null,
      Number.isFinite(interval) && interval >= 10 ? Math.floor(interval) : 60, id],
   );
@@ -205,15 +221,15 @@ app.put("/api/settings/sites/:id", requireAuth, async (req, res) => {
 });
 
 app.delete("/api/settings/sites/:id", requireAuth, async (req, res) => {
-  await pool.query("DELETE FROM site WHERE id = $1", [req.params.id]);
+  await pool.query('DELETE FROM "Site" WHERE id = $1', [req.params.id]);
   res.json({ ok: true });
 });
 
 app.post("/api/settings/sites/:id/toggle", requireAuth, async (req, res) => {
   const id = req.params.id;
-  const r = await pool.query("SELECT * FROM site WHERE id = $1", [id]);
+  const r = await pool.query('SELECT * FROM "Site" WHERE id = $1', [id]);
   if (!r.rows[0]) return res.status(404).json({ error: "not found" });
-  await pool.query("UPDATE site SET active = NOT active WHERE id = $1", [id]);
+  await pool.query('UPDATE "Site" SET active = NOT active WHERE id = $1', [id]);
   res.json({ ok: true });
 });
 
@@ -233,23 +249,23 @@ app.post("/api/settings/password", requireAuth, async (req, res) => {
 
 // ─── Public Status ────────────────────────────────────────
 app.get("/api/public-status", async (req, res) => {
-  const sites = await pool.query("SELECT * FROM site WHERE active = true ORDER BY created_at ASC");
+  const sites = await pool.query('SELECT * FROM "Site" WHERE active = true ORDER BY "createdAt" ASC');
   const result = await Promise.all(
     sites.rows.map(async (site: any) => {
       const layers = await Promise.all(
         ["FRONTEND", "BACKEND", "DATABASE", "SSL"].map(async (layer: string) => {
-          const r = await pool.query("SELECT * FROM check WHERE site_id = $1 AND layer = $2 ORDER BY timestamp DESC LIMIT 1", [site.id, layer]);
+          const r = await pool.query('SELECT * FROM "Check" WHERE "siteId" = $1 AND layer = $2 ORDER BY timestamp DESC LIMIT 1', [site.id, layer]);
           return r.rows[0] || null;
         })
       );
       let latestCheck = null;
       let latencyMs: number | null = null;
       for (const c of layers) {
-        if (c) { latestCheck = c; latencyMs = c.latency_ms; if (c.status === "DOWN") break; }
+        if (c) { latestCheck = c; latencyMs = c.latencyMs; if (c.status === "DOWN") break; }
       }
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const allFrontend = await pool.query(
-        "SELECT status FROM check WHERE site_id = $1 AND layer = 'FRONTEND' AND timestamp >= $2",
+        'SELECT status FROM "Check" WHERE "siteId" = $1 AND layer = \'FRONTEND\' AND timestamp >= $2',
         [site.id, thirtyDaysAgo],
       );
       let uptime30dPercent: number | null = null;
@@ -268,13 +284,18 @@ app.get("/api/public-status", async (req, res) => {
   res.json({ sites: result });
 });
 
-// ─── Health (keep-alive for Render) ───────────────────────
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok" });
+// ─── Health (keep-alive for Render + DB check) ───────────
+app.get("/health", async (_req, res) => {
+  try {
+    await pool.query("SELECT 1");
+    res.json({ status: "ok", db: "ok" });
+  } catch (err: any) {
+    res.status(503).json({ status: "degraded", db: "down", error: err?.message });
+  }
 });
 
 // ─── SPA Fallback ─────────────────────────────────────────
-app.get("*", (req, res) => {
+app.get("/{*splat}", (req, res) => {
   if (req.path.startsWith("/api/") || req.path === "/health") {
     return res.status(404).json({ error: "not found" });
   }
@@ -282,13 +303,14 @@ app.get("*", (req, res) => {
   if (fs.existsSync(indexPath)) {
     return res.sendFile(indexPath);
   }
-  // Fallback to spa.html
-  const spaPath = path.join(spaDir, "spa.html");
-  if (fs.existsSync(spaPath)) {
-    return res.sendFile(spaPath);
-  }
   res.status(500).send("SPA not built");
 });
+
+// ─── Monitor: run checks every minute ─────────────────────
+cron.schedule("* * * * *", () => {
+  runChecks().catch((err) => console.error("[monitor] scheduled check failed:", err));
+});
+runChecks().catch((err) => console.error("[monitor] initial check failed:", err));
 
 // ─── Start ────────────────────────────────────────────────
 app.listen(PORT, () => {

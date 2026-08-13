@@ -103,7 +103,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   color: isActive ? 'var(--text)' : 'var(--text-muted)',
                   background: isActive ? 'rgba(255,255,255,0.08)' : 'transparent',
                   display: 'flex', alignItems: 'center', gap: 6,
-                  textDecoration: 'none', transition: 'all 0.2s',
+                  textDecoration: 'none', transition: 'background-color 200ms ease-out, color 200ms ease-out',
                 }}
               >
                 <Icon size={16} />
@@ -123,7 +123,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               padding: '8px 14px', borderRadius: 8,
               fontSize: 13, fontWeight: 500, color: 'var(--text-muted)',
               background: 'transparent', border: 'none',
-              transition: 'all 0.2s',
+              transition: 'background-color 200ms ease-out',
             }}
           >
             <LogOut size={16} />
