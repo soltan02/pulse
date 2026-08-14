@@ -117,7 +117,7 @@ app.get("/api/overview", requireAuth, async (req, res) => {
     ? Math.round(latencies.reduce((a: number, b: number) => a + b, 0) / latencies.length)
     : null;
 
-  const sites = await pool.query('SELECT * FROM "Site" ORDER BY "createdAt" ASC');
+  const sites = await pool.query('SELECT * FROM "Site" WHERE active = true ORDER BY "createdAt" ASC');
   const siteCards = await Promise.all(sites.rows.map(async (site: any) => {
     const layers = await Promise.all(
       ["FRONTEND", "BACKEND", "DATABASE", "SSL"].map(async (layer: string) => {
