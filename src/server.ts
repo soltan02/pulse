@@ -51,7 +51,10 @@ function setAuthCookie(res: express.Response): void {
 }
 
 function clearAuthCookie(res: express.Response): void {
-  res.clearCookie(SESSION_COOKIE);
+  res.clearCookie(SESSION_COOKIE, {
+    httpOnly: true, maxAge: SESSION_MAX_AGE * 1000, sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
 }
 
 function checkPassword(password: string): boolean {

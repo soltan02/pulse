@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { FadeIn, StaggerContainer } from '../components/FadeIn';
 import { StatCard } from '../components/StatCard';
@@ -184,7 +185,7 @@ export default function OverviewPage() {
                 borderRadius: 12, padding: 40, textAlign: 'center',
                 color: 'var(--text-muted)', fontSize: 14,
               }}>
-                No sites yet. Add your first one in <a href="/settings" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>Settings</a>.
+                No sites yet. Add your first one in <Link to="/settings" style={{ color: 'var(--accent)', textDecoration: 'underline' }}>Settings</Link>.
               </div>
             </FadeIn>
           )}

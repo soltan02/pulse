@@ -11,7 +11,22 @@ import SettingsPage from './pages/SettingsPage';
 import PublicStatusPage from './pages/PublicStatusPage';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { authed } = useAuth();
+  const { authed, loading } = useAuth();
+  if (loading) {
+    return (
+      <Layout>
+        <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--text-muted)' }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: '50%',
+            border: '3px solid var(--border)', borderTopColor: 'var(--accent)',
+            margin: '0 auto 16px', animation: 'spin 0.8s linear infinite',
+          }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          <p style={{ fontSize: 13 }}>Loading…</p>
+        </div>
+      </Layout>
+    );
+  }
   return authed ? <Layout>{children}</Layout> : <Navigate to="/login" replace />;
 }
 

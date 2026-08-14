@@ -23,11 +23,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const location = useLocation();
 
   useEffect(() => {
-    // Check if we're already authenticated by trying a safe API call
-    fetch('/api/overview', { credentials: 'include' })
+    fetch('/api/auth/check', { credentials: 'include' })
       .then((r) => {
-        if (r.ok) setAuthed(true);
-        else setAuthed(false);
+        if (r.ok) {
+          return r.json().then((data) => setAuthed(data.authed));
+        }
+        setAuthed(false);
       })
       .catch(() => setAuthed(false))
       .finally(() => setLoading(false));

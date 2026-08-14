@@ -1,7 +1,9 @@
 import { motion } from 'framer-motion';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Activity, AlertTriangle, Settings, LogOut, ChevronRight } from 'lucide-react';
+
+const MotionLink = motion(Link);
 
 const navItems = [
   { path: '/', label: 'Overview', icon: Activity },
@@ -66,8 +68,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         backdropFilter: 'blur(20px)',
         background: 'rgba(10,10,15,0.85)',
       }}>
-        <motion.a
-          href="/"
+        <MotionLink
+          to="/"
           className="brand-link"
           whileHover={{ scale: 1.02 }}
           style={{
@@ -84,7 +86,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Activity size={18} color="white" strokeWidth={2.5} />
           </div>
           Pulse
-        </motion.a>
+        </MotionLink>
 
         <nav style={{ display: 'flex', gap: 4 }}>
           {navItems.map((item) => {
@@ -92,9 +94,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               (item.path === '/' && location.pathname !== '/login' && !location.pathname.startsWith('/site/') && !location.pathname.startsWith('/incidents') && !location.pathname.startsWith('/settings'));
             const Icon = item.icon;
             return (
-              <motion.a
+              <MotionLink
                 key={item.path}
-                href={item.path}
+                to={item.path}
                 whileHover={{ background: 'rgba(255,255,255,0.08)' }}
                 whileTap={{ scale: 0.97 }}
                 style={{
@@ -108,7 +110,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               >
                 <Icon size={16} />
                 {item.label}
-              </motion.a>
+              </MotionLink>
             );
           })}
         </nav>
