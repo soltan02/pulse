@@ -6,8 +6,9 @@ import fs from "node:fs";
 import cron from "node-cron";
 import { runChecks } from "./monitor";
 
-const app = express();
+export const app = express();
 const PORT = process.env.PORT || 3000;
+const IS_VERCEL = process.env.VERCEL === "1";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const SESSION_COOKIE = "pulse_session";
@@ -307,12 +308,16 @@ app.get("/{*splat}", (req, res) => {
 });
 
 // ─── Monitor: run checks every minute ─────────────────────
-cron.schedule("* * * * *", () => {
-  runChecks().catch((err) => console.error("[monitor] scheduled check failed:", err));
-});
-runChecks().catch((err) => console.error("[monitor] initial check failed:", err));
+// Skipped on Vercel serverless — scheduled checks run via the
+// GitHub Actions workflow (.github/workflows/monitor.yml) instead.
+if (!IS_VERCEL) {
+  cron.schedule("* * * * *", () => {
+    runChecks().catch((err) => console.error("[monitor] scheduled check failed:", err));
+  });
+  runChecks().catch((err) => console.error("[monitor] initial check failed:", err));
 
-// ─── Start ────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`Pulse running on port ${PORT}`);
-});
+  // ─── Start ────────────────────────────────────────────────
+  app.listen(PORT, () => {
+    console.log(`Pulse running on port ${PORT}`);
+  });
+}
