@@ -20,7 +20,9 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve built SPA static files
-const spaDir = path.join(__dirname, "..", "client");
+const spaDir = fs.existsSync(path.join(__dirname, "..", "client"))
+  ? path.join(__dirname, "..", "client")
+  : path.resolve(process.cwd(), "public");
 if (fs.existsSync(spaDir)) {
   app.use(express.static(spaDir));
 }
